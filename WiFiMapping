@@ -3,6 +3,8 @@ convert from dbm to micro-watts and use total microwatt value to change color of
 
 Created July 2013 by Sorcha Nic Aodha
 
+SEE VIDEO OF PROJECT IN ACTION HERE https://vimeo.com/81617675
+
 Based on Arduino WiFi Shield ScanNetwork (credit to: creator dlf (Metodo2 srl) and modifiers Tom Igoe and Jaymes Dec)
 
 And Adafruit Ws2801 strand test which ask the following be included in any future code.

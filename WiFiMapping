@@ -1,0 +1,221 @@
+/*This example uses Arduino Uno and WiFi shield to aggregate signal of nearby wifi networks, 
+convert from dbm to micro-watts and use total microwatt value to change color of a chain of WS2801 12mm Diffused Flat Digital RGB LED Pixels.
+
+Created July 2013 by Sorcha Nic Aodha
+
+Based on Arduino WiFi Shield ScanNetwork (credit to: creator dlf (Metodo2 srl) and modifiers Tom Igoe and Jaymes Dec)
+
+And Adafruit Ws2801 strand test which ask the following be included in any future code.
+
+/***************************************************************************** 
+Example sketch for driving Adafruit WS2801 pixels!
+Designed specifically to work with the Adafruit RGB Pixels! 
+12mm Bullet shape ----> https://www.adafruit.com/products/322 
+12mm Flat shape	----> https://www.adafruit.com/products/738 
+36mm Square shape ----> https://www.adafruit.com/products/683
+These pixels use SPI to transmit the color data, and have built in high speed PWM drivers for 24 bit color per pixel 2 pins are required to interface.
+Adafruit invests time and resources providing this open source code, 
+please support Adafruit and open-source hardware by purchasing products from Adafruit!
+Written by Limor Fried/Ladyada for Adafruit Industries. 
+BSD license, all text above must be included in any redistribution 
+*****************************************************************************/
+
+//Circuit: WiFi shield attached 
+//see pixel data sheet for wire colours, in my case green was data and blue clock
+
+/*NOTE OF CAUTION --> be very careful when choosing power supply, 
+don't run pixels off arduino even if connected by usb, use separate battery pack. 
+I found best results, on the move, from 2 separate battery packs, 9v for arduino via dc adaptor 
+and 4 x rechargeable AA batteries for led pixels, total 5.5 v approx.*/
+
+#include <SPI.h> 
+#include <WiFi.h> 
+#include "Adafruit_WS2801.h"
+
+float totalRssi = 0.0; 
+float average = 0.0; 
+float quality = 0.0; 
+float dbm = 0.0; 
+float val = 0.0;
+float total = 0.0;
+float dataPin = 9; //green wire 
+float clockPin = 3; //blue wire
+
+// 20 refers to number of pixels on chain 
+Adafruit_WS2801 strip = Adafruit_WS2801(20, dataPin, clockPin);
+
+//set up 
+
+void setup() {
+strip.begin(); 
+
+// Update LED contents, to start they are all 'off'
+strip.show();
+
+// sets to pink to start 
+colorSet(Color( 255, 000, 225 ));
+
+//Initialize serial and wait for port to open: 
+Serial.begin(9600); 
+while (!Serial) 
+{
+; // wait for serial port to connect. Needed for Leonardo only
+}
+
+// check for the presence of wifi shield: 
+if (WiFi.status() == WL_NO_SHIELD) 
+{
+  Serial.println("WiFi shield not present"); 
+  // don't continue: 
+  while(true);
+  }
+
+// Print WiFi MAC address: 
+printMacAddress();
+
+// scan for existing networks: 
+listNetworks();
+}
+
+//loop 
+void loop()
+  { 
+  listNetworks(); 
+  lights(); 
+  }
+
+void printMacAddress() 
+{
+  // the MAC address of your Wifi shield 
+  byte mac[6];
+}
+
+void listNetworks() 
+{
+  // scan for nearby networks: 
+  Serial.println("** Scan Networks **"); 
+  float numSsid = WiFi.scanNetworks();
+  
+  //if number of networks = 0, none available, set led colour to black 
+  //and return quoted text to serial port 
+  if (numSsid == 0)
+    { 
+    Serial.println("Couldn't get a wifi connection"); 
+    colorSet(Color(0,000,0)); 
+    }
+    
+  else 
+  {
+  float totalRssi = 0.0; 
+  for (float thisNet = 0.0; thisNet<numSsid; thisNet++) 
+  {
+
+  //converts dBm figure to watt 
+  float logVal = pow(10.0, (float)WiFi.RSSI(thisNet)/10.0); 
+  (thisNet);
+  
+  (WiFi.SSID(thisNet)); 
+  (WiFi.RSSI (thisNet));
+
+  //aggregates total network strength in watt 
+  totalRssi = totalRssi + logVal; 
+  }
+  
+    {
+    //converts watt to microwatt to make figure easier to read
+    total = totalRssi * 1000000000;
+
+    //prints total microwatt figure to serial port 
+    Serial.println(total, DEC);
+    }
+  } 
+}  
+
+void lights() { 
+  int ledColor = 0;
+  
+  // normalize total between 0 and 1 - max signal figure achieved from local testing 
+  float maxSignal = 630; 
+  float totalNorm = total / maxSignal;
+
+  // check its not less than 0 or greater than 1 
+  if (totalNorm < 0.0)
+  totalNorm = 0.0;
+
+  if (totalNorm > 1.0) 
+  totalNorm = 1.0;
+
+  // linearly map colour value between 0 and 255 
+  ledColor = (int)(totalNorm *255.0);
+  
+  Serial.println(totalNorm); 
+  Serial.println(ledColor);
+
+  // set the led giving illusion of fade from black to white 
+  colorSet(Color(ledColor , ledColor , ledColor )); 
+  strip.show();
+  }
+
+
+/* LED Helper functions */
+//Input a value 0 to 384 to get a color value. 
+//The colours are a transition r - g - b - back to r
+
+void hideAll()
+  {
+  for(int i = 0; i > strip.numPixels();i++)
+    {
+    strip.setPixelColor(i,Color(0,0,0)); 
+    }
+
+  strip.show();
+  }
+  
+// Create a 24 bit color value from R,G,B 
+uint32_t Color(byte r, byte g, byte b) 
+{
+  uint32_t c; 
+  c = r; 
+  c <<= 8; 
+  c |= g;
+  c <<= 8; 
+  c |= b; 
+  return c;
+}
+
+void colorSet(uint32_t c) 
+{
+  float i; 
+  for (i=0; i < strip.numPixels(); i++) 
+  {
+  strip.setPixelColor(i, c); // set the color for each pixel
+  }
+  strip.show(); // write the pixels to the strip 
+  // Serial.println("color set");
+}
+
+//Input a value 0 to 255 to get a color value. 
+//The colours are a transition r - g -b - back to r 
+
+uint32_t Wheel(byte WheelPos) 
+{
+  if (WheelPos < 85) { 
+  return Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+  } 
+  else if (WheelPos < 170) { 
+  WheelPos -= 85; return Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  } 
+  else { 
+  WheelPos -= 170; return Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+}
+
+void allColored( uint32_t c ) 
+{
+int i; 
+for (i=0; i < strip.numPixels(); i++) 
+  {
+  strip.setPixelColor(i, c); 
+  }
+strip.show();
+}  
